@@ -1,4 +1,5 @@
 mod terminal;
+mod view;
 use core::cmp::min;
 use crossterm::event::{
     read,
@@ -8,9 +9,7 @@ use crossterm::event::{
 };
 use std::io::Error;
 use terminal::{Position, Size, Terminal};
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+use view::View;
 
 #[derive(Clone, Copy, Default)]
 struct Location {
@@ -114,7 +113,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye. \r\n")?;
         } else {
-            Self::draw_rows()?;
+            View::render()?;
             Terminal::move_caret_to(Position {
                 col: self.location.x,
                 row: self.location.y,
@@ -122,46 +121,6 @@ impl Editor {
         }
         Terminal::show_caret()?;
         Terminal::buffer_flush()?;
-        Ok(())
-    }
-
-    fn draw_rows() -> Result<(), Error> {
-        match Terminal::get_size() {
-            Ok(Size { width: _, height }) => {
-                for r in 0..height {
-                    Terminal::clear_line()?;
-                    #[allow(clippy::integer_division)]
-                    if r == height / 3 {
-                        Self::draw_welcome_msg()?;
-                    } else {
-                        Self::draw_empty_row()?;
-                    }
-                    if r.saturating_add(1) < height {
-                        Terminal::print("\r\n")?;
-                    }
-                }
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
-    }
-
-    fn draw_empty_row() -> Result<(), Error> {
-        Terminal::print("~")?;
-        Ok(())
-    }
-
-    fn draw_welcome_msg() -> Result<(), Error> {
-        let mut welcome_msg = format!("{NAME} editor -- version {VERSION}");
-        let width = Terminal::get_size()?.width;
-        let len = welcome_msg.len();
-        #[allow(clippy::integer_division)]
-        let padding = (width.saturating_sub(len)) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-        welcome_msg = format!("~{spaces}{welcome_msg}");
-        //at most as wide as the screen
-        welcome_msg.truncate(width);
-        Terminal::print(welcome_msg)?;
         Ok(())
     }
 }
