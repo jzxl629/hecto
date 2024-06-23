@@ -1,22 +1,48 @@
+mod buffer;
 use super::terminal::{Size, Terminal};
+use buffer::Buffer;
 use std::io::Error;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Default)]
-pub struct View;
+pub struct View {
+    pub buffer: Buffer,
+}
 
 impl View {
-    pub fn render() -> Result<(), Error> {
+    pub fn load(&mut self, file_name: &str) {
+        if let Ok(buffer) = Buffer::load(file_name) {
+            self.buffer = buffer;
+        }
+    }
+
+    pub fn render_buffer(&self) -> Result<(), Error> {
         match Terminal::get_size() {
             Ok(Size { width: _, height }) => {
-                Terminal::clear_line()?;
-                Terminal::print("Hello, world!")?;
-                for r in 1..height {
+                for r in 0..height {
+                    Terminal::clear_line()?;
+                    if let Some(line) = self.buffer.lines.get(r) {
+                        Terminal::print(line)?;
+                        Terminal::print("\r\n")?;
+                    } else {
+                        Self::draw_empty_row()?;
+                    }
+                }
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn render_welcome_msg(&self) -> Result<(), Error> {
+        match Terminal::get_size() {
+            Ok(Size { width: _, height }) => {
+                for r in 0..height {
                     Terminal::clear_line()?;
                     #[allow(clippy::integer_division)]
-                    if r == height / 3 {
+                    if self.buffer.is_empty() && r == height / 3 {
                         Self::draw_welcome_msg()?;
                     } else {
                         Self::draw_empty_row()?;
@@ -29,6 +55,15 @@ impl View {
             }
             Err(err) => Err(err),
         }
+    }
+
+    pub fn render(&self) -> Result<(), Error> {
+        if self.buffer.is_empty() {
+            self.render_welcome_msg()?;
+        } else {
+            self.render_buffer()?;
+        }
+        Ok(())
     }
 
     fn draw_welcome_msg() -> Result<(), Error> {

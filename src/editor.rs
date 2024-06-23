@@ -7,6 +7,7 @@ use crossterm::event::{
     KeyCode::{self},
     KeyEvent, KeyEventKind, KeyModifiers,
 };
+use std::env;
 use std::io::Error;
 use terminal::{Position, Size, Terminal};
 use view::View;
@@ -21,6 +22,7 @@ struct Location {
 pub struct Editor {
     should_quit: bool,
     location: Location,
+    view: View,
 }
 
 impl Editor {
@@ -31,7 +33,16 @@ impl Editor {
         result.unwrap();
     }
 
+    fn handle_args(&mut self) -> Result<(), Error> {
+        let args: Vec<String> = env::args().collect();
+        if let Some(file_name) = args.get(1) {
+            self.view.load(file_name);
+        }
+        Ok(())
+    }
+
     fn repl(&mut self) -> Result<(), Error> {
+        self.handle_args()?;
         loop {
             self.refresh_screen()?;
             if self.should_quit {
@@ -113,7 +124,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye. \r\n")?;
         } else {
-            View::render()?;
+            self.view.render()?;
             Terminal::move_caret_to(Position {
                 col: self.location.x,
                 row: self.location.y,
