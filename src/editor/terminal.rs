@@ -6,6 +6,7 @@ use std::io::{stdout, Error, Write};
 
 pub struct Terminal {}
 
+#[derive(Default, Clone, Copy)]
 pub struct Size {
     pub width: usize,
     pub height: usize,

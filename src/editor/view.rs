@@ -1,87 +1,88 @@
 mod buffer;
-use super::terminal::{Size, Terminal};
+use super::terminal::{Position, Size, Terminal};
 use buffer::Buffer;
 use std::io::Error;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Default)]
 pub struct View {
     pub buffer: Buffer,
+    pub needs_redraw: bool,
+    pub size: Size,
+}
+
+impl Default for View {
+    fn default() -> Self {
+        Self {
+            buffer: Buffer::default(),
+            needs_redraw: true,
+            size: Terminal::get_size().unwrap_or_default(),
+        }
+    }
 }
 
 impl View {
+    pub fn resize(&mut self, to: Size) {
+        self.size = to;
+        self.needs_redraw = true;
+    }
+
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
             self.buffer = buffer;
+            self.needs_redraw = true;
         }
     }
 
-    pub fn render_buffer(&self) -> Result<(), Error> {
-        match Terminal::get_size() {
-            Ok(Size { width: _, height }) => {
-                for r in 0..height {
-                    Terminal::clear_line()?;
-                    if let Some(line) = self.buffer.lines.get(r) {
-                        Terminal::print(line)?;
-                        Terminal::print("\r\n")?;
-                    } else {
-                        Self::draw_empty_row()?;
-                    }
-                }
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn render_welcome_msg(&self) -> Result<(), Error> {
-        match Terminal::get_size() {
-            Ok(Size { width: _, height }) => {
-                for r in 0..height {
-                    Terminal::clear_line()?;
-                    #[allow(clippy::integer_division)]
-                    if self.buffer.is_empty() && r == height / 3 {
-                        Self::draw_welcome_msg()?;
-                    } else {
-                        Self::draw_empty_row()?;
-                    }
-                    if r.saturating_add(1) < height {
-                        Terminal::print("\r\n")?;
-                    }
-                }
-                Ok(())
-            }
-            Err(err) => Err(err),
-        }
-    }
-
-    pub fn render(&self) -> Result<(), Error> {
-        if self.buffer.is_empty() {
-            self.render_welcome_msg()?;
-        } else {
-            self.render_buffer()?;
-        }
+    fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
+        Terminal::move_caret_to(Position { col: 0, row: at })?;
+        Terminal::clear_line()?;
+        Terminal::print(line_text)?;
         Ok(())
     }
 
-    fn draw_welcome_msg() -> Result<(), Error> {
-        let mut welcome_msg = format!("{NAME} editor -- version {VERSION}");
-        let width = Terminal::get_size()?.width;
-        let len = welcome_msg.len();
+    pub fn render(&mut self) -> Result<(), Error> {
+        if !self.needs_redraw {
+            return Ok(());
+        }
+        let Size { width, height } = self.size;
+        if width == 0 || height == 0 {
+            return Ok(());
+        }
         #[allow(clippy::integer_division)]
-        let padding = (width.saturating_sub(len)) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-        welcome_msg = format!("~{spaces}{welcome_msg}");
-        //at most as wide as the screen
-        welcome_msg.truncate(width);
-        Terminal::print(&welcome_msg)?;
+        let vertical_center = height / 3;
+        for r in 0..height {
+            if let Some(line) = self.buffer.lines.get(r) {
+                let truncated_line = if line.len() >= width {
+                    &line[0..width]
+                } else {
+                    line
+                };
+                Self::render_line(r, truncated_line)?;
+            } else if r == vertical_center && self.buffer.is_empty() {
+                Self::render_line(r, &Self::build_welcome_msg(width))?;
+            } else {
+                Self::render_line(r, &"~".to_string())?;
+            }
+        }
+        self.needs_redraw = false;
         Ok(())
     }
 
-    fn draw_empty_row() -> Result<(), Error> {
-        Terminal::print("~")?;
-        Ok(())
+    fn build_welcome_msg(width: usize) -> String {
+        if width == 0 {
+            return " ".to_string();
+        }
+        let welcome_msg = format!("{NAME} editor -- version {VERSION}");
+        let len = welcome_msg.len();
+        if width <= len {
+            return "~".to_string();
+        }
+        #[allow(clippy::integer_division)]
+        let padding = (width.saturating_sub(len).saturating_sub(1)) / 2;
+        let mut full_message = format!("~{}{}", " ".repeat(padding), welcome_msg);
+        full_message.truncate(width);
+        full_message
     }
 }
