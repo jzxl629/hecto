@@ -1,7 +1,7 @@
 mod buffer;
 use super::terminal::{Position, Size, Terminal};
 use buffer::Buffer;
-use std::io::Error;
+use std::{io::Error, result};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -35,20 +35,18 @@ impl View {
         }
     }
 
-    fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
-        Terminal::move_caret_to(Position { col: 0, row: at })?;
-        Terminal::clear_line()?;
-        Terminal::print(line_text)?;
-        Ok(())
+    fn render_line(at: usize, line_text: &str) {
+        let result = Terminal::print_row(at, line_text);
+        debug_assert!(result.is_ok(), "Failed to render line.");
     }
 
-    pub fn render(&mut self) -> Result<(), Error> {
+    pub fn render(&mut self) {
         if !self.needs_redraw {
-            return Ok(());
+            return;
         }
         let Size { width, height } = self.size;
         if width == 0 || height == 0 {
-            return Ok(());
+            return;
         }
         #[allow(clippy::integer_division)]
         let vertical_center = height / 3;
@@ -59,15 +57,14 @@ impl View {
                 } else {
                     line
                 };
-                Self::render_line(r, truncated_line)?;
+                let _ = Self::render_line(r, truncated_line);
             } else if r == vertical_center && self.buffer.is_empty() {
-                Self::render_line(r, &Self::build_welcome_msg(width))?;
+                let _ = Self::render_line(r, &Self::build_welcome_msg(width));
             } else {
-                Self::render_line(r, &"~".to_string())?;
+                let _ = Self::render_line(r, &"~".to_string());
             }
         }
         self.needs_redraw = false;
-        Ok(())
     }
 
     fn build_welcome_msg(width: usize) -> String {
