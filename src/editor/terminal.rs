@@ -21,6 +21,15 @@ pub struct Position {
     pub row: usize,
 }
 
+impl Position {
+    pub const fn subtract(&self, other: Self) -> Position {
+        Self {
+            col: self.col.saturating_sub(other.col),
+            row: self.row.saturating_sub(other.row),
+        }
+    }
+}
+
 impl Terminal {
     pub fn enter_alternate_screen() -> Result<(), Error> {
         Self::queue_command(EnterAlternateScreen)?;

@@ -1,10 +1,9 @@
 mod buffer;
 mod line;
-mod location;
 use super::editorcommand::{Direction, EditorCommand};
 use super::terminal::{Position, Size, Terminal};
 use buffer::Buffer;
-use location::Location;
+use std::cmp::min;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -13,8 +12,14 @@ pub struct View {
     buffer: Buffer,
     needs_redraw: bool,
     size: Size,
-    location: Location,
-    scroll_offset: Location,
+    text_location: Location,
+    scroll_offset: Position,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct Location {
+    grapheme_index: usize,
+    line_index: usize,
 }
 
 impl Default for View {
@@ -23,48 +28,18 @@ impl Default for View {
             buffer: Buffer::default(),
             needs_redraw: true,
             size: Terminal::get_size().unwrap_or_default(),
-            location: Location::default(),
-            scroll_offset: Location::default(),
+            text_location: Location::default(),
+            scroll_offset: Position::default(),
         }
     }
 }
 
 impl View {
-    pub fn render(&mut self) {
-        if !self.needs_redraw {
-            return;
-        }
-        let Size { width, height } = self.size;
-        if width == 0 || height == 0 {
-            return;
-        }
-        #[allow(clippy::integer_division)]
-        let vertical_center = height / 3;
-        let top = self.scroll_offset.y;
-        for r in 0..height {
-            if let Some(line) = self.buffer.lines.get(r.saturating_add(top)) {
-                let _ = Self::render_line(
-                    r,
-                    &line.get(self.scroll_offset.x..self.scroll_offset.x.saturating_add(width)),
-                );
-            } else if r == vertical_center && self.buffer.is_empty() {
-                let _ = Self::render_line(r, &Self::build_welcome_msg(width));
-            } else {
-                let _ = Self::render_line(r, &"~".to_string());
-            }
-        }
-        self.needs_redraw = false;
-    }
-
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
             self.buffer = buffer;
             self.needs_redraw = true;
         }
-    }
-
-    pub fn get_position(&self) -> Position {
-        self.location.subtract(&self.scroll_offset).into()
     }
 
     pub fn handle_command(&mut self, command: EditorCommand) {
@@ -75,68 +50,115 @@ impl View {
         }
     }
 
-    pub fn move_text_location(&mut self, direction: Direction) {
-        let Location { mut x, mut y } = self.location;
-        let Size { height, width } = Terminal::get_size().unwrap_or_default();
-        match direction {
-            Direction::Up => {
-                y = y.saturating_sub(1);
-            }
-            Direction::Down => {
-                y = y.saturating_add(1);
-            }
-            Direction::Left => {
-                x = x.saturating_sub(1);
-            }
-            Direction::Right => {
-                x = x.saturating_add(1);
-            }
-            Direction::PageUp => {
-                y = 0;
-            }
-            Direction::PageDown => {
-                y = height.saturating_sub(1);
-            }
-            Direction::Home => {
-                x = 0;
-            }
-            Direction::End => {
-                x = width.saturating_sub(1);
+    //region: Rendering
+    pub fn render(&mut self) {
+        if !self.needs_redraw {
+            return;
+        }
+        let Size { width, height } = self.size;
+        if width == 0 || height == 0 {
+            return;
+        }
+        #[allow(clippy::integer_division)]
+        let vertical_center = height / 3;
+        let top = self.scroll_offset.col;
+        for r in 0..height {
+            if let Some(line) = self.buffer.lines.get(r.saturating_add(top)) {
+                let _ = Self::render_line(
+                    r,
+                    &line.get_visible_graphemes(
+                        self.scroll_offset.row..self.scroll_offset.row.saturating_add(width),
+                    ),
+                );
+            } else if r == vertical_center && self.buffer.is_empty() {
+                let _ = Self::render_line(r, &Self::build_welcome_msg(width));
+            } else {
+                let _ = Self::render_line(r, &"~".to_string());
             }
         }
-        self.location = Location { x, y };
+        self.needs_redraw = false;
+    }
+
+    pub fn move_text_location(&mut self, direction: Direction) {
+        let Location {
+            mut grapheme_index,
+            mut line_index,
+        } = self.text_location;
+        let Size { height, width: _ } = Terminal::get_size().unwrap_or_default();
+        match direction {
+            Direction::Up => {
+                line_index = line_index.saturating_sub(1);
+            }
+            Direction::Down => {
+                line_index = line_index.saturating_add(1);
+            }
+            Direction::Left => {
+                grapheme_index = grapheme_index.saturating_sub(1);
+            }
+            Direction::Right => {
+                grapheme_index = grapheme_index.saturating_add(1);
+            }
+            Direction::PageUp => {
+                line_index = line_index.saturating_sub(height).saturating_sub(1);
+            }
+            Direction::PageDown => {
+                line_index = line_index.saturating_add(height).saturating_sub(1);
+            }
+            Direction::Home => {
+                grapheme_index = 0;
+            }
+            Direction::End => {
+                grapheme_index = match self.buffer.lines.get(line_index) {
+                    Some(line) => line.graphemes_len(),
+                    None => 0,
+                };
+                //x = self.buffer.lines.get(y).map_or(0, Line::len);
+            }
+        }
+        grapheme_index = match self.buffer.lines.get(line_index) {
+            Some(line) => min(line.graphemes_len(), grapheme_index),
+            None => 0,
+        };
+        line_index = min(line_index, self.buffer.lines.len());
+        self.text_location = Location {
+            grapheme_index,
+            line_index,
+        };
         self.scroll_location_into_view();
     }
 
     //updates scroll_offset when scrolling
     fn scroll_location_into_view(&mut self) {
         let Size { height, width } = Terminal::get_size().unwrap_or_default();
-        let Location { x, y } = self.location;
+        //convert text location to a position on the grid
+        let Position { col, row } = self.text_location_to_position();
         let mut offset_changed = false;
-        let Location {
-            x: mut scroll_offset_x,
-            y: mut scroll_offset_y,
+        let Position {
+            col: mut scroll_offset_x,
+            row: mut scroll_offset_y,
         } = self.scroll_offset;
 
-        if y < scroll_offset_y {
-            scroll_offset_y = y;
+        if row < scroll_offset_y {
+            scroll_offset_y = row;
             offset_changed = true;
-        } else if y >= scroll_offset_y.saturating_add(height) {
+        } else if row >= scroll_offset_y.saturating_add(height) {
             scroll_offset_y = scroll_offset_y.saturating_sub(height).saturating_add(1);
             offset_changed = true;
         }
 
-        if x < scroll_offset_x {
-            scroll_offset_x = x;
+        //TODO: Horizontal move needs accomodate graphemes
+        //calculate width and move scroll_offset to that position
+        if col < scroll_offset_x {
+            scroll_offset_x = col;
             offset_changed = true;
-        } else if x >= scroll_offset_x.saturating_add(width) {
-            scroll_offset_x = x.saturating_sub(width).saturating_add(1);
+        } else if col >= scroll_offset_x.saturating_add(width) {
+            scroll_offset_x = col.saturating_sub(width).saturating_add(1);
             offset_changed = true;
         }
         self.needs_redraw = offset_changed;
-        self.scroll_offset = Location {
-            x: scroll_offset_x,
-            y: scroll_offset_y,
+        self.scroll_offset = Position {
+            col: scroll_offset_x,
+            row: scroll_offset_y,
         };
     }
 
@@ -164,5 +186,25 @@ impl View {
     fn render_line(at: usize, line_text: &str) {
         let result = Terminal::print_row(at, line_text);
         debug_assert!(result.is_ok(), "Failed to render line.");
+    }
+
+    pub fn get_caret_position(&self) -> Position {
+        self.text_location_to_position()
+            .subtract(self.scroll_offset)
+    }
+
+    fn text_location_to_position(&self) -> Position {
+        let Location {
+            grapheme_index,
+            line_index,
+        } = self.text_location;
+        let total_width = match self.buffer.lines.get(line_index) {
+            Some(line) => line.get_previous_width(grapheme_index),
+            None => 0,
+        };
+        Position {
+            row: line_index,
+            col: total_width,
+        }
     }
 }
