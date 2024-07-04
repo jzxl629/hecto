@@ -44,13 +44,13 @@ impl View {
 
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
+            EditorCommand::Insert(c) => self.insert_char(c),
             EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => {}
         }
     }
 
-    //region: Rendering
     pub fn render(&mut self) {
         if !self.needs_redraw {
             return;
@@ -205,6 +205,25 @@ impl View {
         Position {
             row: line_index,
             col: total_width,
+        }
+    }
+
+    fn insert_char(&mut self, c: char) {
+        let Location {
+            mut grapheme_index,
+            line_index,
+        } = self.text_location;
+        //if can insert at current cursor
+        if line_index <= self.buffer.size()
+            && grapheme_index <= self.buffer.get_line_length(line_index)
+        {
+            self.buffer.insert_in_line(line_index, c, grapheme_index);
+            grapheme_index += 1;
+            self.text_location = Location {
+                grapheme_index,
+                line_index,
+            };
+            self.needs_redraw = true;
         }
     }
 }

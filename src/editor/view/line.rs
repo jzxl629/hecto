@@ -28,6 +28,11 @@ struct TextFragment {
 
 impl Line {
     pub fn from(line_str: &str) -> Self {
+        let fragments = Self::str_to_fragments(line_str);
+        Self { fragments }
+    }
+
+    fn str_to_fragments(line_str: &str) -> Vec<TextFragment> {
         let fragments = line_str
             .graphemes(true)
             .map(|grapheme| {
@@ -49,7 +54,21 @@ impl Line {
                 }
             })
             .collect();
-        Self { fragments }
+        fragments
+    }
+
+    pub fn insert(&mut self, c: char, grapheme_index: usize) {
+        let mut new_string = String::new();
+        for (index, fragment) in self.fragments.iter().enumerate() {
+            if index == grapheme_index {
+                new_string.push(c);
+            }
+            new_string.push_str(&fragment.grapheme);
+        }
+        if grapheme_index >= self.fragments.len() {
+            new_string.push(c);
+        }
+        self.fragments = Self::str_to_fragments(&new_string);
     }
 
     fn replacement_character(string: &str) -> Option<char> {
