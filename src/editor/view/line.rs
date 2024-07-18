@@ -58,17 +58,27 @@ impl Line {
     }
 
     pub fn insert(&mut self, c: char, grapheme_index: usize) {
-        let mut new_string = String::new();
+        let mut result = String::new();
         for (index, fragment) in self.fragments.iter().enumerate() {
             if index == grapheme_index {
-                new_string.push(c);
+                result.push(c);
             }
-            new_string.push_str(&fragment.grapheme);
+            result.push_str(&fragment.grapheme);
         }
         if grapheme_index >= self.fragments.len() {
-            new_string.push(c);
+            result.push(c);
         }
-        self.fragments = Self::str_to_fragments(&new_string);
+        self.fragments = Self::str_to_fragments(&result);
+    }
+
+    pub fn delete(&mut self, grapheme_index: usize) {
+        let mut result = String::new();
+        for (index, fragment) in self.fragments.iter().enumerate() {
+            if index != grapheme_index {
+                result.push_str(&fragment.grapheme);
+            }
+        }
+        self.fragments = Self::str_to_fragments(&result);
     }
 
     fn replacement_character(string: &str) -> Option<char> {

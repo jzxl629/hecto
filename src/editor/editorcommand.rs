@@ -13,13 +13,20 @@ pub enum Direction {
     End,
 }
 
+pub enum DeleteOption {
+    Delete,
+    Backspace,
+}
+
 pub enum EditorCommand {
     Move(Direction),
     Resize(Size),
     Insert(char),
+    Delete(DeleteOption),
     Quit,
 }
 
+#[allow(clippy::as_conversions)]
 impl TryFrom<Event> for EditorCommand {
     type Error = String;
     fn try_from(event: Event) -> Result<Self, Self::Error> {
@@ -29,6 +36,8 @@ impl TryFrom<Event> for EditorCommand {
             }) => match (code, modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
                 (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Ok(Self::Insert(c)),
+                (KeyCode::Backspace, _) => Ok(Self::Delete(DeleteOption::Backspace)),
+                (KeyCode::Delete, _) => Ok(Self::Delete(DeleteOption::Delete)),
                 (KeyCode::Up, _) => Ok(Self::Move(Direction::Up)),
                 (KeyCode::Down, _) => Ok(Self::Move(Direction::Down)),
                 (KeyCode::Left, _) => Ok(Self::Move(Direction::Left)),

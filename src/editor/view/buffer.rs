@@ -44,4 +44,13 @@ impl Buffer {
             None => (),
         }
     }
+
+    pub fn delete(&mut self, line_index: usize, grapheme_index: usize) {
+        if line_index < self.lines.len() {
+            match self.lines.get_mut(line_index) {
+                Some(line) => line.delete(grapheme_index),
+                None => (),
+            }
+        }
+    }
 }

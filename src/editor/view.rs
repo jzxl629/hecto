@@ -1,6 +1,6 @@
 mod buffer;
 mod line;
-use super::editorcommand::{Direction, EditorCommand};
+use super::editorcommand::{DeleteOption, Direction, EditorCommand};
 use super::terminal::{Position, Size, Terminal};
 use buffer::Buffer;
 use std::cmp::min;
@@ -45,6 +45,7 @@ impl View {
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
             EditorCommand::Insert(c) => self.insert_char(c),
+            EditorCommand::Delete(deleteOption) => self.delete_grapheme(deleteOption),
             EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => {}
@@ -218,12 +219,28 @@ impl View {
             && grapheme_index <= self.buffer.get_line_length(line_index)
         {
             self.buffer.insert_in_line(line_index, c, grapheme_index);
-            grapheme_index += 1;
+            grapheme_index = grapheme_index.saturating_add(1);
             self.text_location = Location {
                 grapheme_index,
                 line_index,
             };
             self.needs_redraw = true;
         }
+    }
+
+    fn delete_grapheme(&mut self, delete_option: DeleteOption) {
+        let Location {
+            mut grapheme_index,
+            line_index,
+        } = self.text_location;
+        if let DeleteOption::Backspace = delete_option {
+            grapheme_index = grapheme_index.saturating_sub(1);
+        }
+        self.buffer.delete(line_index, grapheme_index);
+        self.text_location = Location {
+            grapheme_index,
+            line_index,
+        };
+        self.needs_redraw = true;
     }
 }
