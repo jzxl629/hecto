@@ -101,7 +101,7 @@ impl Line {
     }
 
     pub fn graphemes_len(&self) -> usize {
-        return self.fragments.len();
+        self.fragments.len()
     }
 
     pub fn get_visible_graphemes(&self, range: Range<usize>) -> String {
@@ -140,5 +140,16 @@ impl Line {
                 GraphemeWidth::Full => 2,
             })
             .sum()
+    }
+
+    pub fn append(&mut self, other: &Self) {
+        let mut merged_line = String::new();
+        for (_, fragment) in self.fragments.iter().enumerate() {
+            merged_line.push_str(&fragment.grapheme);
+        }
+        for (_, fragment) in other.fragments.iter().enumerate() {
+            merged_line.push_str(&fragment.grapheme);
+        }
+        self.fragments = Self::str_to_fragments(&merged_line);
     }
 }

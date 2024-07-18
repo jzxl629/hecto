@@ -1,6 +1,6 @@
 mod buffer;
 mod line;
-use super::editorcommand::{DeleteOption, Direction, EditorCommand};
+use super::editorcommand::{Direction, EditorCommand};
 use super::terminal::{Position, Size, Terminal};
 use buffer::Buffer;
 use std::cmp::min;
@@ -45,7 +45,8 @@ impl View {
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
             EditorCommand::Insert(c) => self.insert_char(c),
-            EditorCommand::Delete(delete_option) => self.delete_grapheme(delete_option),
+            EditorCommand::Delete => self.delete(),
+            EditorCommand::Backspace => self.backspace(),
             EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => {}
@@ -120,7 +121,7 @@ impl View {
             Some(line) => min(line.graphemes_len(), grapheme_index),
             None => 0,
         };
-        line_index = min(line_index, self.buffer.lines.len());
+        line_index = min(line_index, self.buffer.get_size());
         self.text_location = Location {
             grapheme_index,
             line_index,
@@ -223,19 +224,44 @@ impl View {
         self.needs_redraw = true;
     }
 
-    fn delete_grapheme(&mut self, delete_option: DeleteOption) {
+    fn delete(&mut self) {
         let Location {
-            mut grapheme_index,
-            line_index,
-        } = self.text_location;
-        if let DeleteOption::Backspace = delete_option {
-            grapheme_index = grapheme_index.saturating_sub(1);
-        }
-        self.buffer.delete(line_index, grapheme_index);
-        self.text_location = Location {
             grapheme_index,
             line_index,
-        };
-        self.needs_redraw = true;
+        } = self.text_location;
+        if line_index != self.buffer.get_size() - 1
+            || grapheme_index < self.buffer.get_line_length(line_index) - 1
+        {
+            if grapheme_index == self.buffer.get_line_length(line_index) - 1 {
+                let next_line_index = line_index.saturating_add(1);
+                self.buffer.merge(line_index, next_line_index);
+            } else {
+                self.buffer.delete(line_index, grapheme_index);
+            }
+            self.needs_redraw = true;
+        }
+    }
+
+    fn backspace(&mut self) {
+        let Location {
+            mut grapheme_index,
+            mut line_index,
+        } = self.text_location;
+        if grapheme_index != 0 || line_index != 0 {
+            if grapheme_index == 0 {
+                let last_line_index = line_index.saturating_sub(1);
+                grapheme_index = self.buffer.get_line_length(last_line_index);
+                self.buffer.merge(last_line_index, line_index);
+                line_index = last_line_index;
+            } else {
+                grapheme_index = grapheme_index.saturating_sub(1);
+                self.buffer.delete(line_index, grapheme_index);
+            }
+            self.text_location = Location {
+                grapheme_index,
+                line_index,
+            };
+            self.needs_redraw = true;
+        }
     }
 }

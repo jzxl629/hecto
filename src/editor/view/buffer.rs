@@ -20,7 +20,7 @@ impl Buffer {
         Ok(Self { lines })
     }
 
-    pub fn size(&self) -> usize {
+    pub fn get_size(&self) -> usize {
         if self.is_empty() {
             return 0;
         }
@@ -51,6 +51,14 @@ impl Buffer {
                 Some(line) => line.delete(grapheme_index),
                 None => (),
             }
+        }
+    }
+
+    pub fn merge(&mut self, line_index: usize, merge_to_index: usize) {
+        let removed_line = self.lines.remove(merge_to_index);
+        match self.lines.get_mut(line_index) {
+            Some(line) => line.append(&removed_line),
+            None => (),
         }
     }
 }
