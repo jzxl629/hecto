@@ -45,7 +45,7 @@ impl View {
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
             EditorCommand::Insert(c) => self.insert_char(c),
-            EditorCommand::Delete(deleteOption) => self.delete_grapheme(deleteOption),
+            EditorCommand::Delete(delete_option) => self.delete_grapheme(delete_option),
             EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => {}
@@ -214,18 +214,13 @@ impl View {
             mut grapheme_index,
             line_index,
         } = self.text_location;
-        //if can insert at current cursor
-        if line_index <= self.buffer.size()
-            && grapheme_index <= self.buffer.get_line_length(line_index)
-        {
-            self.buffer.insert_in_line(line_index, c, grapheme_index);
-            grapheme_index = grapheme_index.saturating_add(1);
-            self.text_location = Location {
-                grapheme_index,
-                line_index,
-            };
-            self.needs_redraw = true;
-        }
+        self.buffer.insert_in_line(line_index, c, grapheme_index);
+        grapheme_index = grapheme_index.saturating_add(1);
+        self.text_location = Location {
+            grapheme_index,
+            line_index,
+        };
+        self.needs_redraw = true;
     }
 
     fn delete_grapheme(&mut self, delete_option: DeleteOption) {
