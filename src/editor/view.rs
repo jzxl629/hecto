@@ -64,13 +64,13 @@ impl View {
         }
         #[allow(clippy::integer_division)]
         let vertical_center = height / 3;
-        let top = self.scroll_offset.col;
+        let top = self.scroll_offset.row;
         for r in 0..height {
             if let Some(line) = self.buffer.lines.get(r.saturating_add(top)) {
                 let _ = Self::render_line(
                     r,
                     &line.get_visible_graphemes(
-                        self.scroll_offset.row..self.scroll_offset.row.saturating_add(width),
+                        self.scroll_offset.col..self.scroll_offset.col.saturating_add(width),
                     ),
                 );
             } else if r == vertical_center && self.buffer.is_empty() {
@@ -149,8 +149,6 @@ impl View {
             offset_changed = true;
         }
 
-        //TODO: Horizontal move needs accomodate graphemes
-        //calculate width and move scroll_offset to that position
         if col < scroll_offset_x {
             scroll_offset_x = col;
             offset_changed = true;
