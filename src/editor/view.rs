@@ -220,6 +220,7 @@ impl View {
             grapheme_index,
             line_index,
         };
+        self.scroll_location_into_view();
         self.needs_redraw = true;
     }
 
@@ -237,6 +238,7 @@ impl View {
             } else {
                 self.buffer.delete(line_index, grapheme_index);
             }
+            self.scroll_location_into_view();
             self.needs_redraw = true;
         }
     }
@@ -260,6 +262,7 @@ impl View {
                 grapheme_index,
                 line_index,
             };
+            self.scroll_location_into_view();
             self.needs_redraw = true;
         }
     }
@@ -276,6 +279,7 @@ impl View {
             grapheme_index,
             line_index,
         };
+        self.scroll_location_into_view();
         self.needs_redraw = true;
     }
 }
