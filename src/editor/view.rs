@@ -14,7 +14,6 @@ pub struct View {
     size: Size,
     text_location: Location,
     scroll_offset: Position,
-    file_name: String,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -31,7 +30,6 @@ impl Default for View {
             size: Terminal::get_size().unwrap_or_default(),
             text_location: Location::default(),
             scroll_offset: Position::default(),
-            file_name: String::new(),
         }
     }
 }
@@ -39,7 +37,6 @@ impl Default for View {
 impl View {
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
-            self.file_name = file_name.to_string();
             self.buffer = buffer;
             self.needs_redraw = true;
         }
@@ -69,7 +66,7 @@ impl View {
         #[allow(clippy::integer_division)]
         let vertical_center = height / 3;
         let top = self.scroll_offset.row;
-        for r in 0..height {
+        for r in 0..height - 2 {
             if let Some(line) = self.buffer.lines.get(r.saturating_add(top)) {
                 let _ = Self::render_line(
                     r,
@@ -288,8 +285,6 @@ impl View {
     }
 
     fn save(&self) {
-        if !self.file_name.is_empty() {
-            self.buffer.save(&self.file_name);
-        }
+        let _ = self.buffer.save();
     }
 }

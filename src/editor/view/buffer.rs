@@ -7,6 +7,7 @@ use std::io::Write;
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
+    file_name: Option<String>,
 }
 
 impl Buffer {
@@ -20,7 +21,10 @@ impl Buffer {
         for line in file_contents.lines() {
             lines.push(Line::from(line));
         }
-        Ok(Self { lines })
+        Ok(Self {
+            lines,
+            file_name: Some(file_name.to_string()),
+        })
     }
 
     pub fn get_size(&self) -> usize {
@@ -69,11 +73,14 @@ impl Buffer {
         }
     }
 
-    pub fn save(&self, file_name: &str) {
-        let mut file = File::create(file_name).expect("Could not create file");
-        for (_, line) in self.lines.iter().enumerate() {
-            writeln!(file, "{}", &line.line_to_string()).expect("Could not write to the file");
+    pub fn save(&self) -> Result<(), Error> {
+        if let Some(file_name) = &self.file_name {
+            let mut file = File::create(file_name)?;
+            for (_, line) in self.lines.iter().enumerate() {
+                writeln!(file, "{}", &line.line_to_string())?;
+            }
         }
+        Ok(())
     }
 
     pub fn delete(&mut self, line_index: usize, grapheme_index: usize) {
