@@ -1,6 +1,8 @@
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+
+#[derive(Default)]
 pub struct Line {
     fragments: Vec<TextFragment>,
 }
@@ -151,5 +153,15 @@ impl Line {
             merged_line.push_str(&fragment.grapheme);
         }
         self.fragments = Self::str_to_fragments(&merged_line);
+    }
+
+    pub fn split(&mut self, split_index: usize) -> Self {
+        if split_index > self.graphemes_len() {
+            return Self::default();
+        }
+        let split_fragments = self.fragments.split_off(split_index);
+        Self {
+            fragments: split_fragments,
+        }
     }
 }

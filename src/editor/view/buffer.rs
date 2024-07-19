@@ -36,12 +36,33 @@ impl Buffer {
 
     pub fn insert_in_line(&mut self, line_index: usize, c: char, grapheme_index: usize) {
         if line_index == self.lines.len() {
-            //inserts a new line
             self.lines.push(Line::from(""));
         }
         match self.lines.get_mut(line_index) {
             Some(line) => line.insert(c, grapheme_index),
             None => (),
+        }
+    }
+
+    pub fn insert_new_line(&mut self, index: usize) {
+        self.lines.insert(index, Line::from(""));
+    }
+
+    pub fn enter(&mut self, line_index: usize, grapheme_index: usize) {
+        if grapheme_index == 0 {
+            self.insert_new_line(line_index);
+        } else {
+            //if enter is pressed within the line, split the line and create a new line from the remainder
+            if let Some(line) = self.lines.get(line_index) {
+                if grapheme_index < line.graphemes_len() {
+                    let next_line_index = line_index.saturating_add(1);
+                    let next_line = self.lines[line_index].split(grapheme_index);
+                    self.lines.insert(next_line_index, next_line);
+                } else {
+                    let next_line_index = line_index.saturating_add(1);
+                    self.insert_new_line(next_line_index);
+                }
+            }
         }
     }
 

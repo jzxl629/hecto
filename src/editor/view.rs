@@ -47,6 +47,7 @@ impl View {
             EditorCommand::Insert(c) => self.insert_char(c),
             EditorCommand::Delete => self.delete(),
             EditorCommand::Backspace => self.backspace(),
+            EditorCommand::Enter => self.enter(),
             EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => {}
@@ -263,5 +264,20 @@ impl View {
             };
             self.needs_redraw = true;
         }
+    }
+
+    fn enter(&mut self) {
+        let Location {
+            mut grapheme_index,
+            mut line_index,
+        } = self.text_location;
+        self.buffer.enter(line_index, grapheme_index);
+        grapheme_index = 0;
+        line_index = line_index.saturating_add(1);
+        self.text_location = Location {
+            grapheme_index,
+            line_index,
+        };
+        self.needs_redraw = true;
     }
 }
