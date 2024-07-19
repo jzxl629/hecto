@@ -1,6 +1,9 @@
 use super::line::Line;
 use std::fs;
+use std::fs::File;
 use std::io::Error;
+use std::io::Write;
+
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
@@ -63,6 +66,13 @@ impl Buffer {
                     self.insert_new_line(next_line_index);
                 }
             }
+        }
+    }
+
+    pub fn save(&self, file_name: &str) {
+        let mut file = File::create(file_name).expect("Could not create file");
+        for (_, line) in self.lines.iter().enumerate() {
+            writeln!(file, "{}", &line.line_to_string()).expect("Could not write to the file");
         }
     }
 

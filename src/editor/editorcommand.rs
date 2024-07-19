@@ -21,6 +21,7 @@ pub enum EditorCommand {
     Backspace,
     Enter,
     Quit,
+    Save,
 }
 
 #[allow(clippy::as_conversions)]
@@ -32,6 +33,7 @@ impl TryFrom<Event> for EditorCommand {
                 code, modifiers, ..
             }) => match (code, modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
+                (KeyCode::Char('s'), KeyModifiers::CONTROL) => Ok(Self::Save),
                 (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Ok(Self::Insert(c)),
                 (KeyCode::Backspace, _) => Ok(Self::Backspace),
                 (KeyCode::Delete, _) => Ok(Self::Delete),

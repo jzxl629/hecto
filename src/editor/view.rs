@@ -14,6 +14,7 @@ pub struct View {
     size: Size,
     text_location: Location,
     scroll_offset: Position,
+    file_name: String,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -30,6 +31,7 @@ impl Default for View {
             size: Terminal::get_size().unwrap_or_default(),
             text_location: Location::default(),
             scroll_offset: Position::default(),
+            file_name: String::new(),
         }
     }
 }
@@ -37,6 +39,7 @@ impl Default for View {
 impl View {
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
+            self.file_name = file_name.to_string();
             self.buffer = buffer;
             self.needs_redraw = true;
         }
@@ -50,6 +53,7 @@ impl View {
             EditorCommand::Enter => self.enter(),
             EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Resize(size) => self.resize(size),
+            EditorCommand::Save => self.save(),
             EditorCommand::Quit => {}
         }
     }
@@ -281,5 +285,11 @@ impl View {
         };
         self.scroll_location_into_view();
         self.needs_redraw = true;
+    }
+
+    fn save(&self) {
+        if !self.file_name.is_empty() {
+            self.buffer.save(&self.file_name);
+        }
     }
 }

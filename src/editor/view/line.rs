@@ -164,4 +164,12 @@ impl Line {
             fragments: split_fragments,
         }
     }
+
+    pub fn line_to_string(&self) -> String {
+        let mut result = String::new();
+        for (_, fragment) in self.fragments.iter().enumerate() {
+            result.push_str(&fragment.grapheme);
+        }
+        result
+    }
 }
