@@ -1,8 +1,8 @@
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::style::Print;
+use crossterm::style::{Attribute, Print};
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
-    LeaveAlternateScreen,
+    disable_raw_mode, enable_raw_mode, size, Clear, ClearType, DisableLineWrap, EnableLineWrap,
+    EnterAlternateScreen, LeaveAlternateScreen, SetTitle,
 };
 use crossterm::{queue, Command};
 use std::io::{stdout, Error, Write};
@@ -43,6 +43,7 @@ impl Terminal {
 
     pub fn terminate() -> Result<(), Error> {
         Self::leave_alternate_screen()?;
+        Self::enable_line_wrap()?;
         Self::show_caret()?;
         Self::buffer_flush()?;
         disable_raw_mode()?;
@@ -52,6 +53,7 @@ impl Terminal {
     pub fn initialize() -> Result<(), std::io::Error> {
         enable_raw_mode()?;
         Self::enter_alternate_screen()?;
+        Self::disable_line_wrap()?;
         Self::clear_screen()?;
         Self::buffer_flush()?;
         Ok(())
@@ -59,6 +61,20 @@ impl Terminal {
 
     pub fn print(string: &str) -> Result<(), Error> {
         Self::queue_command(Print(string))?;
+        Ok(())
+    }
+
+    pub fn invert_print(line_text: &str, row: usize) -> Result<(), Error> {
+        let width = Self::get_size()?.width;
+        Self::print_row(
+            row,
+            &format!(
+                "{}{:width$.width$}{}",
+                Attribute::Reverse,
+                line_text,
+                Attribute::Reset
+            ),
+        )?;
         Ok(())
     }
 
@@ -112,6 +128,21 @@ impl Terminal {
         Self::move_caret_to(Position { row, col: 0 })?;
         Self::clear_line()?;
         Self::print(line_text)?;
+        Ok(())
+    }
+
+    pub fn set_title(title: &str) -> Result<(), Error> {
+        Self::queue_command(SetTitle(title))?;
+        Ok(())
+    }
+
+    pub fn enable_line_wrap() -> Result<(), Error> {
+        Self::queue_command(EnableLineWrap)?;
+        Ok(())
+    }
+
+    pub fn disable_line_wrap() -> Result<(), Error> {
+        Self::queue_command(DisableLineWrap)?;
         Ok(())
     }
 }

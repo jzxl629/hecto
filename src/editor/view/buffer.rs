@@ -1,4 +1,5 @@
 use super::line::Line;
+use super::FileInfo;
 use std::fs;
 use std::fs::File;
 use std::io::Error;
@@ -7,7 +8,8 @@ use std::io::Write;
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
-    file_name: Option<String>,
+    pub file_info: FileInfo,
+    pub is_modified: bool,
 }
 
 impl Buffer {
@@ -23,7 +25,8 @@ impl Buffer {
         }
         Ok(Self {
             lines,
-            file_name: Some(file_name.to_string()),
+            file_info: FileInfo::from(file_name),
+            is_modified: false,
         })
     }
 
@@ -46,7 +49,10 @@ impl Buffer {
             self.lines.push(Line::from(""));
         }
         match self.lines.get_mut(line_index) {
-            Some(line) => line.insert(c, grapheme_index),
+            Some(line) => {
+                line.insert(c, grapheme_index);
+                self.is_modified = true;
+            }
             None => (),
         }
     }
@@ -71,22 +77,27 @@ impl Buffer {
                 }
             }
         }
+        self.is_modified = true;
     }
 
-    pub fn save(&self) -> Result<(), Error> {
-        if let Some(file_name) = &self.file_name {
-            let mut file = File::create(file_name)?;
+    pub fn save(&mut self) -> Result<(), Error> {
+        if let Some(path) = &self.file_info.path {
+            let mut file = File::create(path)?;
             for (_, line) in self.lines.iter().enumerate() {
                 writeln!(file, "{}", &line.line_to_string())?;
             }
         }
+        self.is_modified = false;
         Ok(())
     }
 
     pub fn delete(&mut self, line_index: usize, grapheme_index: usize) {
         if line_index < self.lines.len() {
             match self.lines.get_mut(line_index) {
-                Some(line) => line.delete(grapheme_index),
+                Some(line) => {
+                    line.delete(grapheme_index);
+                    self.is_modified = true;
+                }
                 None => (),
             }
         }
@@ -95,7 +106,10 @@ impl Buffer {
     pub fn merge(&mut self, line_index: usize, merge_to_index: usize) {
         let removed_line = self.lines.remove(merge_to_index);
         match self.lines.get_mut(line_index) {
-            Some(line) => line.append(&removed_line),
+            Some(line) => {
+                line.append(&removed_line);
+                self.is_modified = true;
+            }
             None => (),
         }
     }

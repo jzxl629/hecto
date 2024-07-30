@@ -1,12 +1,12 @@
 mod buffer;
 mod line;
+use super::documentstatus::DocumentStatus;
 use super::editorcommand::{Direction, EditorCommand};
+use super::fileinfo::FileInfo;
 use super::terminal::{Position, Size, Terminal};
+use super::{NAME, VERSION};
 use buffer::Buffer;
 use std::cmp::min;
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct View {
     buffer: Buffer,
@@ -14,6 +14,7 @@ pub struct View {
     size: Size,
     text_location: Location,
     scroll_offset: Position,
+    margin_bottom: usize,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -22,19 +23,22 @@ pub struct Location {
     line_index: usize,
 }
 
-impl Default for View {
-    fn default() -> Self {
+impl View {
+    pub fn new(margin_bottom: usize) -> Self {
+        let size = Terminal::get_size().unwrap_or_default();
         Self {
             buffer: Buffer::default(),
             needs_redraw: true,
-            size: Terminal::get_size().unwrap_or_default(),
+            size: Size {
+                height: size.height.saturating_sub(margin_bottom),
+                width: size.width,
+            },
+            margin_bottom,
             text_location: Location::default(),
             scroll_offset: Position::default(),
         }
     }
-}
 
-impl View {
     pub fn load(&mut self, file_name: &str) {
         if let Ok(buffer) = Buffer::load(file_name) {
             self.buffer = buffer;
@@ -56,11 +60,11 @@ impl View {
     }
 
     pub fn render(&mut self) {
-        if !self.needs_redraw {
+        if !self.needs_redraw || self.size.height == 0 {
             return;
         }
         let Size { width, height } = self.size;
-        if width == 0 || height == 0 {
+        if width <= 0 || height <= 0 {
             return;
         }
         #[allow(clippy::integer_division)]
@@ -88,7 +92,7 @@ impl View {
             mut grapheme_index,
             mut line_index,
         } = self.text_location;
-        let Size { height, width: _ } = Terminal::get_size().unwrap_or_default();
+        let Size { height, width: _ } = self.size;
         match direction {
             Direction::Up => {
                 line_index = line_index.saturating_sub(1);
@@ -133,7 +137,7 @@ impl View {
 
     //updates scroll_offset when scrolling
     fn scroll_location_into_view(&mut self) {
-        let Size { height, width } = Terminal::get_size().unwrap_or_default();
+        let Size { height, width } = self.size;
         //convert text location to a position on the grid
         let Position { col, row } = self.text_location_to_position();
         let mut offset_changed = false;
@@ -166,22 +170,23 @@ impl View {
 
     fn build_welcome_msg(width: usize) -> String {
         if width == 0 {
-            return " ".to_string();
+            return String::new();
         }
         let welcome_msg = format!("{NAME} editor -- version {VERSION}");
         let len = welcome_msg.len();
-        if width <= len {
+        let remaining_width = width.saturating_sub(1);
+        if remaining_width < len {
             return "~".to_string();
         }
-        #[allow(clippy::integer_division)]
-        let padding = (width.saturating_sub(len).saturating_sub(1)) / 2;
-        let mut full_message = format!("~{}{}", " ".repeat(padding), welcome_msg);
-        full_message.truncate(width);
-        full_message
+        format!("{:<1}{:^remaining_width$}", "~", welcome_msg)
     }
 
     fn resize(&mut self, to: Size) {
-        self.size = to;
+        self.size = Size {
+            width: to.width,
+            height: to.height.saturating_sub(self.margin_bottom),
+        };
+        self.scroll_location_into_view();
         self.needs_redraw = true;
     }
 
@@ -284,7 +289,16 @@ impl View {
         self.needs_redraw = true;
     }
 
-    fn save(&self) {
+    fn save(&mut self) {
         let _ = self.buffer.save();
+    }
+
+    pub fn get_current_document_status(&self) -> DocumentStatus {
+        DocumentStatus {
+            num_lines: self.buffer.get_size(),
+            current_caret_line: self.text_location.line_index,
+            file_name: format!("{}", self.buffer.file_info),
+            is_modified: self.buffer.is_modified,
+        }
     }
 }

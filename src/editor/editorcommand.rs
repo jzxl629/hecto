@@ -2,6 +2,7 @@ use super::terminal::Size;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use std::convert::TryFrom;
 
+#[derive(Clone, Copy)]
 pub enum Direction {
     Up,
     Down,
@@ -13,6 +14,7 @@ pub enum Direction {
     End,
 }
 
+#[derive(Clone, Copy)]
 pub enum EditorCommand {
     Move(Direction),
     Resize(Size),
