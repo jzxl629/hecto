@@ -44,6 +44,9 @@ impl Editor {
         if let Some(file_name) = args.get(1) {
             editor.view.load(file_name);
         }
+        editor
+            .message_bar
+            .update_msg("HELP: Ctrl-S = save | Ctrl-Q = quit".to_string());
         editor.refresh_status();
         Ok(editor)
     }

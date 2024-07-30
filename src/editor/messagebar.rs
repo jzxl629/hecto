@@ -1,56 +1,74 @@
-use super::documentstatus::DocumentStatus;
 use super::editorcommand::EditorCommand;
 use super::terminal::{Size, Terminal};
+use std::time::Duration;
+use std::time::Instant;
+const DEFAULT_DURATION: Duration = Duration::new(5, 0);
+
+#[derive(Default)]
 pub struct MessageBar {
-    pub current_status: DocumentStatus,
     needs_redraw: bool,
-    width: usize,
-    position_y: usize,
-    is_visible: bool,
+    is_cleared: bool,
+    message: Message,
+}
+
+struct Message {
+    message: String,
+    time: Instant,
+}
+
+impl Default for Message {
+    fn default() -> Self {
+        Self {
+            message: String::new(),
+            time: Instant::now(),
+        }
+    }
+}
+
+impl Message {
+    fn is_expired(&self) -> bool {
+        Instant::now().duration_since(self.time) > DEFAULT_DURATION
+    }
 }
 
 impl MessageBar {
     pub fn new() -> Self {
-        let size = Terminal::get_size().unwrap_or_default();
-        let mut message_bar = Self {
-            current_status: DocumentStatus::default(),
-            width: size.width,
+        Self {
             needs_redraw: true,
-            position_y: 0,
-            is_visible: false,
-        };
-        message_bar.resize(size);
-        message_bar
+            is_cleared: false,
+            message: Message::default(),
+        }
     }
 
-    pub fn resize(&mut self, to: Size) {
-        let mut position_y = 0;
-        let mut is_visible = false;
-        if let Some(result) = to.height.checked_sub(1) {
-            position_y = result;
-            is_visible = true;
-        }
-        self.width = to.width;
-        self.position_y = position_y;
+    pub fn update_msg(&mut self, msg: String) {
+        self.message = Message {
+            message: msg,
+            time: Instant::now(),
+        };
         self.needs_redraw = true;
-        self.is_visible = is_visible;
+    }
+
+    pub fn resize(&mut self, _to: Size) {
+        self.needs_redraw = true;
     }
 
     pub fn render(&mut self) {
-        if !self.needs_redraw || !self.is_visible {
+        self.needs_redraw = self.needs_redraw || (!self.is_cleared && self.message.is_expired());
+        if !self.needs_redraw {
             return;
         }
-        if let Ok(size) = Terminal::get_size() {
-            let msg = String::from("HELP: Ctrl-S = save | Ctrl-Q = quit");
-            let to_print = if msg.len() <= size.width {
-                msg
-            } else {
-                String::new()
-            };
-            let result = Terminal::invert_print(&to_print, self.position_y);
-            debug_assert!(result.is_ok(), "Failed to render message bar");
-            self.needs_redraw = false;
+        let size = Terminal::get_size().unwrap_or_default();
+        if self.message.is_expired() {
+            self.is_cleared = true;
         }
+        let msg = if self.message.is_expired() {
+            ""
+        } else {
+            &self.message.message
+        };
+        let result = Terminal::print_row(size.height.saturating_sub(1), msg);
+        debug_assert!(result.is_ok(), "Failed to render message bar");
+        self.needs_redraw = false;
     }
 
     pub fn handle_command(&mut self, command: EditorCommand) {
