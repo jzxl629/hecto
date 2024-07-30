@@ -12,14 +12,14 @@ pub struct MessageBar {
 }
 
 struct Message {
-    message: String,
+    text: String,
     time: Instant,
 }
 
 impl Default for Message {
     fn default() -> Self {
         Self {
-            message: String::new(),
+            text: String::new(),
             time: Instant::now(),
         }
     }
@@ -42,7 +42,7 @@ impl MessageBar {
 
     pub fn update_msg(&mut self, msg: String) {
         self.message = Message {
-            message: msg,
+            text: msg,
             time: Instant::now(),
         };
         self.needs_redraw = true;
@@ -64,7 +64,7 @@ impl MessageBar {
         let msg = if self.message.is_expired() {
             ""
         } else {
-            &self.message.message
+            &self.message.text
         };
         let result = Terminal::print_row(size.height.saturating_sub(1), msg);
         debug_assert!(result.is_ok(), "Failed to render message bar");
