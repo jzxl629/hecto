@@ -1,4 +1,3 @@
-use super::editorcommand::EditorCommand;
 use super::terminal::{Size, Terminal};
 use std::time::Duration;
 use std::time::Instant;
@@ -40,12 +39,13 @@ impl MessageBar {
         }
     }
 
-    pub fn update_msg(&mut self, msg: String) {
+    pub fn update_msg(&mut self, msg: &str) {
         self.message = Message {
-            text: msg,
+            text: msg.to_string(),
             time: Instant::now(),
         };
         self.needs_redraw = true;
+        self.is_cleared = false;
     }
 
     pub fn resize(&mut self, _to: Size) {
@@ -69,11 +69,5 @@ impl MessageBar {
         let result = Terminal::print_row(size.height.saturating_sub(1), msg);
         debug_assert!(result.is_ok(), "Failed to render message bar");
         self.needs_redraw = false;
-    }
-
-    pub fn handle_command(&mut self, command: EditorCommand) {
-        if let EditorCommand::Resize(size) = command {
-            self.resize(size);
-        }
     }
 }

@@ -15,19 +15,22 @@ pub enum Direction {
 }
 
 #[derive(Clone, Copy)]
-pub enum EditorCommand {
-    Move(Direction),
-    Resize(Size),
+pub enum EditCommand {
     Insert(char),
     Delete,
     Backspace,
     Enter,
+}
+pub enum Command {
+    Edit(EditCommand),
+    Move(Direction),
+    Resize(Size),
     Quit,
     Save,
 }
 
 #[allow(clippy::as_conversions)]
-impl TryFrom<Event> for EditorCommand {
+impl TryFrom<Event> for Command {
     type Error = String;
     fn try_from(event: Event) -> Result<Self, Self::Error> {
         match event {
@@ -36,11 +39,13 @@ impl TryFrom<Event> for EditorCommand {
             }) => match (code, modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
                 (KeyCode::Char('s'), KeyModifiers::CONTROL) => Ok(Self::Save),
-                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Ok(Self::Insert(c)),
-                (KeyCode::Backspace, _) => Ok(Self::Backspace),
-                (KeyCode::Delete, _) => Ok(Self::Delete),
-                (KeyCode::Tab, _) => Ok(Self::Insert('\t')),
-                (KeyCode::Enter, _) => Ok(Self::Enter),
+                (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
+                    Ok(Self::Edit(EditCommand::Insert(c)))
+                }
+                (KeyCode::Backspace, _) => Ok(Self::Edit(EditCommand::Backspace)),
+                (KeyCode::Delete, _) => Ok(Self::Edit(EditCommand::Delete)),
+                (KeyCode::Tab, _) => Ok(Self::Edit(EditCommand::Insert('\t'))),
+                (KeyCode::Enter, _) => Ok(Self::Edit(EditCommand::Enter)),
                 (KeyCode::Up, _) => Ok(Self::Move(Direction::Up)),
                 (KeyCode::Down, _) => Ok(Self::Move(Direction::Down)),
                 (KeyCode::Left, _) => Ok(Self::Move(Direction::Left)),

@@ -1,5 +1,4 @@
 use super::documentstatus::DocumentStatus;
-use super::editorcommand::EditorCommand;
 use super::terminal::{Size, Terminal};
 pub struct StatusBar {
     pub current_status: DocumentStatus,
@@ -64,12 +63,6 @@ impl StatusBar {
             let result = Terminal::invert_print(&to_print, self.position_y);
             debug_assert!(result.is_ok(), "Failed to render status bar");
             self.needs_redraw = false;
-        }
-    }
-
-    pub fn handle_command(&mut self, command: EditorCommand) {
-        if let EditorCommand::Resize(size) = command {
-            self.resize(size);
         }
     }
 

@@ -1,12 +1,12 @@
+mod command;
 mod documentstatus;
-mod editorcommand;
 mod fileinfo;
 mod messagebar;
 mod statusbar;
 mod terminal;
 mod view;
+use command::Command;
 use crossterm::event::{read, Event, KeyEvent, KeyEventKind};
-use editorcommand::EditorCommand;
 use messagebar::MessageBar;
 use statusbar::StatusBar;
 use std::env;
@@ -40,13 +40,17 @@ impl Editor {
             message_bar: MessageBar::new(),
             title: String::new(),
         };
-        let args: Vec<String> = env::args().collect();
-        if let Some(file_name) = args.get(1) {
-            editor.view.load(file_name);
-        }
         editor
             .message_bar
-            .update_msg("HELP: Ctrl-S = save | Ctrl-Q = quit".to_string());
+            .update_msg("HELP: Ctrl-S = save | Ctrl-Q = quit");
+        let args: Vec<String> = env::args().collect();
+        if let Some(file_name) = args.get(1) {
+            if editor.view.load(file_name).is_err() {
+                editor
+                    .message_bar
+                    .update_msg("ERR: Could not open file: {file_name}");
+            }
+        }
         editor.refresh_status();
         Ok(editor)
     }
@@ -88,13 +92,27 @@ impl Editor {
             _ => false,
         };
         if should_process {
-            if let Ok(command) = EditorCommand::try_from(event) {
-                if matches!(command, EditorCommand::Quit) {
-                    self.should_quit = true;
-                } else {
-                    self.view.handle_command(command);
-                    self.status_bar.handle_command(command);
-                    self.message_bar.handle_command(command);
+            if let Ok(command) = Command::try_from(event) {
+                match command {
+                    Command::Quit => {
+                        self.should_quit = true;
+                    }
+                    Command::Save => {
+                        if self.view.save().is_ok() {
+                            self.message_bar.update_msg("File saved successfully");
+                        } else {
+                            self.message_bar.update_msg("Error writing file!");
+                        }
+                    }
+                    Command::Edit(edit_command) => {
+                        self.view.handle_edit_command(edit_command);
+                    }
+                    Command::Move(direction) => self.view.move_text_location(direction),
+                    Command::Resize(size) => {
+                        self.view.resize(size);
+                        self.status_bar.resize(size);
+                        self.message_bar.resize(size);
+                    }
                 }
             }
         }

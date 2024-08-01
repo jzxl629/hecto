@@ -1,12 +1,13 @@
 mod buffer;
 mod line;
+use super::command::{Direction, EditCommand};
 use super::documentstatus::DocumentStatus;
-use super::editorcommand::{Direction, EditorCommand};
 use super::fileinfo::FileInfo;
 use super::terminal::{Position, Size, Terminal};
 use super::{NAME, VERSION};
 use buffer::Buffer;
 use std::cmp::min;
+use std::io::Error;
 
 pub struct View {
     buffer: Buffer,
@@ -39,23 +40,19 @@ impl View {
         }
     }
 
-    pub fn load(&mut self, file_name: &str) {
-        if let Ok(buffer) = Buffer::load(file_name) {
-            self.buffer = buffer;
-            self.needs_redraw = true;
-        }
+    pub fn load(&mut self, file_name: &str) -> Result<(), Error> {
+        let buffer = Buffer::load(file_name)?;
+        self.buffer = buffer;
+        self.needs_redraw = true;
+        Ok(())
     }
 
-    pub fn handle_command(&mut self, command: EditorCommand) {
+    pub fn handle_edit_command(&mut self, command: EditCommand) {
         match command {
-            EditorCommand::Insert(c) => self.insert_char(c),
-            EditorCommand::Delete => self.delete(),
-            EditorCommand::Backspace => self.backspace(),
-            EditorCommand::Enter => self.enter(),
-            EditorCommand::Move(direction) => self.move_text_location(direction),
-            EditorCommand::Resize(size) => self.resize(size),
-            EditorCommand::Save => self.save(),
-            EditorCommand::Quit => {}
+            EditCommand::Insert(c) => self.insert_char(c),
+            EditCommand::Delete => self.delete(),
+            EditCommand::Backspace => self.backspace(),
+            EditCommand::Enter => self.enter(),
         }
     }
 
@@ -181,7 +178,7 @@ impl View {
         format!("{:<1}{:^remaining_width$}", "~", welcome_msg)
     }
 
-    fn resize(&mut self, to: Size) {
+    pub fn resize(&mut self, to: Size) {
         self.size = Size {
             width: to.width,
             height: to.height.saturating_sub(self.margin_bottom),
@@ -289,8 +286,8 @@ impl View {
         self.needs_redraw = true;
     }
 
-    fn save(&mut self) {
-        let _ = self.buffer.save();
+    pub fn save(&mut self) -> Result<(), Error> {
+        self.buffer.save()
     }
 
     pub fn get_current_document_status(&self) -> DocumentStatus {
