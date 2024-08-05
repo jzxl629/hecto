@@ -6,11 +6,12 @@ mod statusbar;
 mod terminal;
 mod view;
 use command::Command;
-use crossterm::event::{read, Event, KeyEvent, KeyEventKind};
+use crossterm::event::{poll, read, Event, KeyEvent, KeyEventKind};
 use messagebar::MessageBar;
 use statusbar::StatusBar;
 use std::env;
 use std::io::Error;
+use std::time::Duration;
 use terminal::Terminal;
 use view::View;
 
@@ -72,12 +73,14 @@ impl Editor {
             if self.should_quit {
                 break;
             };
-            match read() {
-                Ok(event) => self.evaluate_event(event),
-                Err(err) => {
-                    #[cfg(debug_assertions)]
-                    {
-                        panic!("Could not read event: {err:?}");
+            if poll(Duration::from_millis(100)).unwrap() {
+                match read() {
+                    Ok(event) => self.evaluate_event(event),
+                    Err(err) => {
+                        #[cfg(debug_assertions)]
+                        {
+                            panic!("Could not read event: {err:?}");
+                        }
                     }
                 }
             }
